@@ -1,5 +1,16 @@
 use statrs::distribution::{Normal, ContinuousCDF};
 
+/*
+TODO: Even though I implemented the solved Black-Scholes formula for calls and puts, 
+I need to account for Merton's extension to the Black-Scholes model which accounts for dividends. 
+This will require an additional parameter in the struct for the dividend yield and adjustments to the 
+d1 and d2 calculations
+
+If I don't do this, call options will be overpriced and put options will be underpriced for securities 
+that pay dividends, 
+which is a common occurrence in the real world.
+*/
+
 pub struct BS 
 {
     price: f64, // w - price of option
@@ -45,7 +56,7 @@ impl BS
     variable "d_1".
     */
 
-    pub fn call_option_d1(&self) -> f64 
+    pub fn d1(&self) -> f64 
     {
         return ((self.security_price / self.strike_price).ln() + 
         (self.risk_free_interest_rate + self.volatility * self.volatility / 2.0) * 
@@ -56,9 +67,23 @@ impl BS
     This function represents the "solved" Black-Scholes formula for a call option. Specifically, the 
     variable "d_2".
     */
-    pub fn call_option_d2(&self) -> f64 
+    pub fn d2(&self) -> f64 
     {
-        return self.call_option_d1() - self.volatility * self.time_to_maturity.sqrt();
+        return self.d1() - self.volatility * self.time_to_maturity.sqrt();
+    }
+
+    /*
+    This function calculates the discounted strike price, 
+    which is the present value of the strike price discounted at the risk-free interest 
+    rate over the time to maturity. This is used in the call option pricing formula to 
+    account for the time value of money, as the strike price will be paid at maturity, 
+    not at the current time. The formula used is:
+
+    K * e^(-r * (T-t))
+    */
+    pub fn discounted_strike_price(&self) -> f64 
+    {
+        return self.strike_price * (-self.risk_free_interest_rate * self.time_to_maturity).exp();
     }
 
     /*
@@ -73,12 +98,27 @@ impl BS
         let normal = Normal::new(0.0, 1.0).unwrap(); // Standard normal distribution
 
         // Calculate d1 and d2 once to save CPU cycles
-        let d1 = self.call_option_d1();
-        let d2 = d1 - self.volatility * self.time_to_maturity.sqrt();
+        let d1 = self.d1();
+        let d2 = self.d2();
         
-        let discounted_strike = self.strike_price * (-self.risk_free_interest_rate * self.time_to_maturity).exp();
+        let discounted_strike = self.discounted_strike_price();
         
+        //implied return from Rust
         self.security_price * normal.cdf(d1) - discounted_strike * normal.cdf(d2)
+    }
+
+    pub fn put_option_price(&self) -> f64 
+    {
+        let normal = Normal::new(0.0, 1.0).unwrap(); //Standard normal distribution
+
+        //Calculate d1 and d2 once to save CPU cycles
+        let d1 = self.d1();
+        let d2 = self.d2();
+
+        let discounted_strike = self.discounted_strike_price();
+
+        //implied return from Rust
+        discounted_strike * normal.cdf(-d2) - self.security_price * normal.cdf(-d1)
     }
 }
 
@@ -99,14 +139,22 @@ mod tests {
     }
 
     #[test]
+    fn test_put_option_price() {
+        let bs = BS::new(100.0, 105.0, 0.05, 1.0, 0.2);
+        let price = bs.put_option_price();
+        // known Black-Scholes value for these parameters
+        assert!((price - 7.9000).abs() < 0.001);
+    }
+
+    #[test]
     fn test_d1() {
         let bs = BS::new(100.0, 105.0, 0.05, 1.0, 0.2);
-        assert!((bs.call_option_d1() - 0.10609).abs() < 0.001);
+        assert!((bs.d1() - 0.10609).abs() < 0.001);
     }
 
     #[test]
     fn test_d2() {
         let bs = BS::new(100.0, 105.0, 0.05, 1.0, 0.2);
-        assert!((bs.call_option_d2() - (-0.09395)).abs() < 0.001);
+        assert!((bs.d2() - (-0.09395)).abs() < 0.001);
     }
 }

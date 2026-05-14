@@ -27,6 +27,7 @@ async fn main() {
     {
         let t_remaining = days as f64 / 365.0;
         let bs_test = BS::new(spot_price, strike_price, risk_free_rate, t_remaining, volatility);
-        println!("Days: {}, Price: {:.4}", days, bs_test.call_option_price());
+        println!("Days: {}, Call Option Price: {:.4}", days, bs_test.call_option_price());
+        println!("Days: {}, Put Option Price: {:.4}", days, bs_test.put_option_price());
     }
 }
