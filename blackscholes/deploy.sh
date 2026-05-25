@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
  
-BOARD_IP="10.0.0.156" # Update with your board's IP address every run!
+BOARD_IP="10.0.0.115" # Update with your board's IP address every run!
 BOARD_USER="root"
 BOARD_DIR="~/TradeShark"
 TARGET="armv7-unknown-linux-musleabihf"
